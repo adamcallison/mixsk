@@ -79,7 +79,8 @@ def sdp_core(Jmataug, vecs, stepsize, max_iters, tol):
 
 def bnbcost(state, Jmat, hvec):
     assert len(state) == Jmat.shape[0]
-    return cost(Jmat, hvec, np.array(state, dtype=float))
+    state_array = np.array(state, dtype=np.float64)
+    return cost(Jmat, hvec, state_array)
 
 def bnbbranch(state):
     lstate = list(state)
@@ -137,6 +138,10 @@ def bnbbound_mix(state, Jmat, hvec, max_iters=None, tol=1e-8):
     assert len(state) < Jmat.shape[0]
     n = Jmat.shape[0]
     lenfixed = len(state)
+
+    if lenfixed == 0:
+        return -np.float('inf'), None, 0
+
     lenfree = n - lenfixed
     Jmatfixed = Jmat[:lenfixed,:lenfixed].copy()
     hvecfixed = hvec[:lenfixed].copy()
@@ -145,7 +150,7 @@ def bnbbound_mix(state, Jmat, hvec, max_iters=None, tol=1e-8):
     for j in range(lenfree):
         for k in range(lenfixed):
             hvecfree[j] += (Jmat[k, j+lenfixed] + Jmat[j+lenfixed, k])*state[k]
-    fixedcost = cost(Jmatfixed, hvecfixed, state)
+    fixedcost = bnbcost(state, Jmatfixed, hvecfixed)
     if np.count_nonzero(Jmatfree) == 0 and np.count_nonzero(hvecfree) == 0:
         guess = None
         return fixedcost, guess, 0
@@ -180,7 +185,6 @@ def bnbbound_recursive_init(Jmat, hvec, pre_computed_bounds=None, \
     pre_computed_bounds = [-np.abs(hvec[-1])]
 
     for ncur in range(2, n):
-        #print(f'Doing {ncur}  ', end='\r')
         lenfree = ncur
         lenfixed = n - lenfree
         Jmatfree = Jmat[lenfixed:,lenfixed:].copy()
@@ -211,7 +215,7 @@ def bnb(Jmat, hvec, priority_order='lowest', bound_type='mix', verbose=False, \
     stime = time()
     n = Jmat.shape[0]
     best_state, best_nrg = [], np.float('inf')
-    states = [[]]
+    states = [np.array([], dtype=int)]
     priority = [np.float('nan')]
     while len(states) > 0:
         if verbose: print(f'{stats}    ', end='\r')
